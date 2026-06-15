@@ -1,0 +1,80 @@
+services:
+
+  # ── Base de données MySQL ──────────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: keyce_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_keyce2025
+      MYSQL_DATABASE:      keyce_emploi_temps
+      MYSQL_USER:          keyce_user
+      MYSQL_PASSWORD:      keyce_pass2025
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./sql/keyce_emploi_temps.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+    networks:
+      - keyce_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_keyce2025"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend PHP (Apache) ───────────────────────────────────────────────────
+  backend:
+    image: php:8.2-apache
+    container_name: keyce_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./:/var/www/html
+      - ./docker/apache.conf:/etc/apache2/sites-available/000-default.conf:ro
+    environment:
+      DB_HOST:      db
+      DB_PORT:      3306
+      DB_NAME:      keyce_emploi_temps
+      DB_USER:      keyce_user
+      DB_PASS:      keyce_pass2025
+      DB_CHARSET:   utf8mb4
+      JWT_SECRET:   "keyce_jwt_secret_docker_2025_changeme"
+      APP_ENV:      development
+      FRONTEND_URL: "http://localhost:5173"
+    ports:
+      - "8000:80"
+    networks:
+      - keyce_net
+    command: >
+      bash -c "
+        docker-php-ext-install pdo pdo_mysql &&
+        a2enmod rewrite &&
+        apache2-foreground
+      "
+
+  # ── PhpMyAdmin (optionnel — accès BDD via navigateur) ────────────────────
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: keyce_phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PMA_HOST:     db
+      PMA_USER:     root
+      PMA_PASSWORD: root_keyce2025
+    ports:
+      - "8080:80"
+    networks:
+      - keyce_net
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  keyce_net:
+    driver: bridge
