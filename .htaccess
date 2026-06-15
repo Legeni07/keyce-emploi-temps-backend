@@ -1,0 +1,25 @@
+Options -Indexes
+RewriteEngine On
+
+# Rediriger toutes les requêtes vers index.php (sauf fichiers existants)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Sécurité : bloquer l'accès direct aux dossiers sensibles
+RewriteRule ^(config|middleware|utils|sql)/ - [F,L]
+
+# Headers de sécurité
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Désactiver l'affichage des erreurs PHP en production
+# (activer en développement dans .env.php : APP_ENV=development)
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>
